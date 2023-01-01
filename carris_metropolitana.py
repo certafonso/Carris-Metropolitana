@@ -1,18 +1,18 @@
 import requests
 from time import sleep
 
-def do_request(base_url, action, delay = 1, **args):
+def do_request(base_url, action, delay = 0.1, **args):
     """Executes a resquest to the server
 
     Args:
-        base_url (str): Base url of the site, for example: https://area2.carrismetropolitana.pt
+        base_url (str): Base url of the site, for example: https://cache.geobus.pt
         action (str): Action to be executed
         delay (int, optional): Delay to avoid doing to many request to the server
 
     Returns:
         dict: Json response of the request.
     """
-    url = [base_url + f"/wp-admin/admin-ajax.php?action={action}"]
+    url = [base_url + f"/admin-ajax.php?action={action}"]
     url += [f"{arg}={args[arg]}" for arg in args]
     url = "&".join(url)
 
@@ -25,7 +25,7 @@ def get_timetable(base_url, route_number, way, date, variant = 0) -> dict:
     """Get the raw timetables of a route
 
     Args:
-        base_url (str): Base url of the site, for example: https://area2.carrismetropolitana.pt
+        base_url (str): Base url of the site, for example: https://cache.geobus.pt
         route_number (str | int): Number of the route.
         way (str | int): Direction of the route, starts with one and is the same order as in the oficial site
         date (str): Date of the search
@@ -37,7 +37,7 @@ def get_timetable(base_url, route_number, way, date, variant = 0) -> dict:
     """
     return do_request(
         base_url,
-        "carris_get_route_timetable",
+        "carris_get_route_timetable2",
         route_id=f"{route_number}_{variant}",
         way_id=f"{route_number}_{variant}_{way}",
         start_date=date,
@@ -47,7 +47,7 @@ def get_stop_name(base_url, stop_id, name_dict = {}):
     """Get the name of a stop with a given id
 
     Args:
-        base_url (str): Base url of the site, for example: https://area2.carrismetropolitana.pt
+        base_url (str): Base url of the site, for example: https://cache.geobus.pt
         stop_id (str): Id of the stop.
         name_dict (dict, optional): Dictionary to cache names of stations to reduce number of requests. Defaults to {}.
 
@@ -69,7 +69,7 @@ def get_timetable_with_names(base_url, route_number, way, date, variant = 0, nam
     """Get the timetables of a route with the names of the stops.
 
     Args:
-        base_url (str): Base url of the site, for example: https://area2.carrismetropolitana.pt
+        base_url (str): Base url of the site, for example: https://cache.geobus.pt
         route_number (str | int): Number of the route.
         way (str | int): Direction of the route, starts with one and is the same order as in the oficial site
         date (str): Date of the search
@@ -85,13 +85,29 @@ def get_timetable_with_names(base_url, route_number, way, date, variant = 0, nam
     times = {}
     for stop in raw_times:
         stop_name = get_stop_name(base_url, stop, name_dict)
-        print(stop, stop_name)
         times[stop_name] = raw_times[stop]
 
     return times
 
 def get_route_trips(base_url, route_number, way, date, variant = 0):
-    timetable = get_timetable(base_url, route_number, way, date, variant)
+    """Get trips for a specified route.
+
+    Args:
+        base_url (str): Base url of the site, for example: https://cache.geobus.pt
+        route_number (str | int): Number of the route.
+        way (str | int): Direction of the route, starts with one and is the same order as in the oficial site
+        date (str): Date of the search
+        variant (int, optional): Variant of the line, starts with zero and is in the same order as in the oficial site. Defaults to 0.
+
+    Returns:
+        list: A list with the route trips with the format [trip1, trip2, ...]
+        where trips are lists of the stops with format {"stop_id": ..., "stop_sequence": ..., "visual_time": ..., "route": ...}
+
+    """
+    try:
+        timetable = get_timetable(base_url, route_number, way, date, variant)["timetable"][0]
+    except IndexError:
+        return []
     
     trips = []
 
@@ -99,7 +115,6 @@ def get_route_trips(base_url, route_number, way, date, variant = 0):
         trip_count = 0
         for hour in timetable[stop]:
             for minute in timetable[stop][hour]:
-                print(trips)
                 try:
                     trips[trip_count].append({
                         "stop_id": stop,
@@ -117,57 +132,30 @@ def get_route_trips(base_url, route_number, way, date, variant = 0):
 
     return trips
 
-def get_combined_timetables(base_url, route_list, way_list, date):
+def get_all_route_trips(base_url, route_number, date):
+    """Get all trips for specified route (all variants and ways).
 
-    combined_times = []
-    for i in range(len(route_list)):
-        timetable = get_timetable(
-            base_url,
-            route_list[i],
-            way_list[i],
-            date
-        )
-        print(timetable)
-        for stop in timetable:
-            try: combined_times[stop]
-            except KeyError: combined_times[stop] = []
-            for hour in timetable[stop]:
-                for minute in timetable[stop][hour]:
-                        combined_times[stop].append({
-                            "route": route_list[i],
-                            "hour": hour,
-                            "minute": minute
-                        })
+    Args:
+        base_url (str): Base url of the site, for example: https://cache.geobus.pt
+        route_number (str | int): Number of the route.
+        date (str): Date of the search
 
-    return combined_times
+    Returns:
+        list: A list with the route trips with the format [trip1, trip2, ...]
+        where trips are lists of the stops with format {"stop_id": ..., "stop_sequence": ..., "visual_time": ...}
+    """
+    all_trips = []
+    
+    for way in [1,2]:
+        variant = 0
+        while True:
+            trips = get_route_trips(base_url, route_number, way, date, variant)
 
-if __name__ == "__main__":
-    import json
-    base_url = "https://area2.carrismetropolitana.pt"
+            if len(trips) == 0:
+                break
 
-    # print(get_timetable(
-    #     base_url,
-    #     2804,
-    #     1,
-    #     "2023-01-03",
-    #     0,
-    # ))
+            all_trips += trips
 
-    with open("trips.json", "w") as f:
-        json.dump(
-            get_route_trips(
-                base_url,
-                2801,
-                1,
-                "2023-01-03",
-                0,
-            ),
-            f
-        )
+            variant += 1
 
-    # print(get_combined_timetables(
-    #     base_url,
-    #     [2804, 2740],
-    #     [1,2],
-    #     "2023-01-03",
-    # ))
+    return all_trips
