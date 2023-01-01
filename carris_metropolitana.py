@@ -104,10 +104,12 @@ def get_route_trips(base_url, route_number, way, date, variant = 0):
         where trips are lists of the stops with format {"stop_id": ..., "stop_sequence": ..., "visual_time": ..., "route": ...}
 
     """
-    try:
-        timetable = get_timetable(base_url, route_number, way, date, variant)["timetable"][0]
-    except IndexError:
-        return []
+    raw_timetable = get_timetable(base_url, route_number, way, date, variant)["timetable"]
+
+    timetable = {}
+
+    for stop in raw_timetable:
+        timetable.update(stop)
     
     trips = []
 
@@ -159,3 +161,15 @@ def get_all_route_trips(base_url, route_number, date):
             variant += 1
 
     return all_trips
+
+if __name__ == "__main__":
+    import json
+    base_url = "https://cache.geobus.pt"
+    trips = get_all_route_trips(
+    base_url, 
+    2802,
+    "2023-01-02"
+    )
+
+    with open("test.json", "w") as f:
+        json.dump(trips, f)
