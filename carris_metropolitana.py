@@ -5,14 +5,14 @@ def do_request(base_url, action, delay = 0.1, **args):
     """Executes a resquest to the server
 
     Args:
-        base_url (str): Base url of the site, for example: https://cache.geobus.pt
+        base_url (str): Base url of the site, for example: https://horarios.carrismetropolitana.pt/
         action (str): Action to be executed
         delay (int, optional): Delay to avoid doing to many request to the server
 
     Returns:
         dict: Json response of the request.
     """
-    url = [base_url + f"/admin-ajax.php?action={action}"]
+    url = [base_url + f"?action={action}"]
     url += [f"{arg}={args[arg]}" for arg in args]
     url = "&".join(url)
 
@@ -25,7 +25,7 @@ def get_timetable(base_url, route_number, way, date, variant = 0) -> dict:
     """Get the raw timetables of a route
 
     Args:
-        base_url (str): Base url of the site, for example: https://cache.geobus.pt
+        base_url (str): Base url of the site, for example: https://horarios.carrismetropolitana.pt/
         route_number (str | int): Number of the route.
         way (str | int): Direction of the route, starts with one and is the same order as in the oficial site
         date (str): Date of the search
@@ -37,23 +37,25 @@ def get_timetable(base_url, route_number, way, date, variant = 0) -> dict:
     """
     return do_request(
         base_url,
-        "carris_get_route_timetable2",
+        "cmet_get_route_timetable",
         route_id=f"{route_number}_{variant}",
         way_id=f"{route_number}_{variant}_{way}",
         start_date=date,
         )
 
 def get_stop_name(base_url, stop_id, name_dict = {}):
-    """Get the name of a stop with a given id
+    """Get the name of a stop with a given id. This function is broken because the API was changed and I dind't find the new action name (yet).
 
     Args:
-        base_url (str): Base url of the site, for example: https://cache.geobus.pt
+        base_url (str): Base url of the site, for example: https://horarios.carrismetropolitana.pt/
         stop_id (str): Id of the stop.
         name_dict (dict, optional): Dictionary to cache names of stations to reduce number of requests. Defaults to {}.
 
     Returns:
         _type_: _description_
     """
+    raise NotImplementedError("This function is broken because the API was changed and I dind't find the new action name (yet)")
+    
     try:
         return name_dict[stop_id]
     except KeyError:
@@ -66,10 +68,10 @@ def get_stop_name(base_url, stop_id, name_dict = {}):
         return name
 
 def get_timetable_with_names(base_url, route_number, way, date, variant = 0, name_dict = {}):
-    """Get the timetables of a route with the names of the stops.
+    """Get the timetables of a route with the names of the stops. This function is broken because get_stop_name is broken.
 
     Args:
-        base_url (str): Base url of the site, for example: https://cache.geobus.pt
+        base_url (str): Base url of the site, for example: https://horarios.carrismetropolitana.pt/
         route_number (str | int): Number of the route.
         way (str | int): Direction of the route, starts with one and is the same order as in the oficial site
         date (str): Date of the search
@@ -93,7 +95,7 @@ def get_route_trips(base_url, route_number, way, date, variant = 0):
     """Get trips for a specified route.
 
     Args:
-        base_url (str): Base url of the site, for example: https://cache.geobus.pt
+        base_url (str): Base url of the site, for example: https://horarios.carrismetropolitana.pt/
         route_number (str | int): Number of the route.
         way (str | int): Direction of the route, starts with one and is the same order as in the oficial site
         date (str): Date of the search
@@ -138,7 +140,7 @@ def get_all_route_trips(base_url, route_number, date):
     """Get all trips for specified route (all variants and ways).
 
     Args:
-        base_url (str): Base url of the site, for example: https://cache.geobus.pt
+        base_url (str): Base url of the site, for example: https://horarios.carrismetropolitana.pt/
         route_number (str | int): Number of the route.
         date (str): Date of the search
 
@@ -161,15 +163,3 @@ def get_all_route_trips(base_url, route_number, date):
             variant += 1
 
     return all_trips
-
-if __name__ == "__main__":
-    import json
-    base_url = "https://cache.geobus.pt"
-    trips = get_all_route_trips(
-    base_url, 
-    2802,
-    "2023-01-02"
-    )
-
-    with open("test.json", "w") as f:
-        json.dump(trips, f)
