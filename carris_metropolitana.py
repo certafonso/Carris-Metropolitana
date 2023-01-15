@@ -91,6 +91,29 @@ def get_timetable_with_names(base_url, route_number, way, date, variant = 0, nam
 
     return times
 
+def get_route_stops(base_url, route_number, way, date, variant = 0):
+    """Get the stops with time of a specified route.
+
+    Args:
+        base_url (str): Base url of the site, for example: https://horarios.carrismetropolitana.pt/
+        route_number (str | int): Number of the route.
+        way (str | int): Direction of the route, starts with one and is the same order as in the oficial site
+        date (str): Date of the search
+        variant (int, optional): Variant of the line, starts with zero and is in the same order as in the oficial site. Defaults to 0.
+
+    Returns:
+        dict: a dictionary with 2 keys: "stops" and "hours". The first one contains a list of dicts all representing a time a bus stops
+        with the keys: trip_id, arrival_time, visual_time, departure_time, stop_id, stop_sequence, stop_name, stop_lat and stop_lon.
+        The second one contains pretty much the same info but with just trip_id, stop_id, stop_sequence, arrival_time and visual_time.
+    """
+    return do_request(
+        base_url,
+        "cmet_get_route_stops",
+        route_id=f"{route_number}_{variant}",
+        way_id=f"{route_number}_{variant}_{way}",
+        start_date=date,
+        )
+
 def get_route_trips(base_url, route_number, way, date, variant = 0):
     """Get trips for a specified route.
 
@@ -103,38 +126,22 @@ def get_route_trips(base_url, route_number, way, date, variant = 0):
 
     Returns:
         list: A list with the route trips with the format [trip1, trip2, ...]
-        where trips are lists of the stops with format {"stop_id": ..., "stop_sequence": ..., "visual_time": ..., "route": ...}
-
+        where trips are lists of the stops with format:
+        {"stop_id": ..., "stop_sequence": ..., "visual_time": ..., "route": ..., "stop_name": ..., ...}
     """
-    raw_timetable = get_timetable(base_url, route_number, way, date, variant)["timetable"]
-
-    timetable = {}
-
-    for stop in raw_timetable:
-        timetable.update(stop)
+    route_stops = get_route_stops(base_url, route_number, way, date, variant)
     
-    trips = []
+    trips = {}
 
-    for stop_sequence, stop in enumerate(timetable):
-        trip_count = 0
-        for hour in timetable[stop]:
-            for minute in timetable[stop][hour]:
-                try:
-                    trips[trip_count].append({
-                        "stop_id": stop,
-                        "stop_sequence": stop_sequence,
-                        "visual_time": f"{hour}:{minute}"
-                    })
-                except IndexError:
-                    trips.append([{
-                        "stop_id": stop,
-                        "stop_sequence": stop_sequence,
-                        "visual_time": f"{hour}:{minute}"
-                    }])
+    # Group stops by trips
+    for stop in route_stops["stops"]:
+        try:
+            trips[stop["trip_id"]].append(stop)
 
-                trip_count += 1
+        except KeyError:
+            trips[stop["trip_id"]] = [stop]
 
-    return trips
+    return [trips[trip_id] for trip_id in trips]
 
 def get_all_route_trips(base_url, route_number, date):
     """Get all trips for specified route (all variants and ways).
