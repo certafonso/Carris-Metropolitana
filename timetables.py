@@ -128,6 +128,14 @@ def generate_combined_timetable(base_url, route_list, first_stop_name, date):
 
     return oneway_timetable, returning_timetable
 
+def filter_timetable(timetable, stops = None):
+    if stops != None:
+        filtered_timetable = [line for line in timetable if line[1] in stops]
+    else:
+        filtered_timetable = [line for line in timetable]
+    
+    return filtered_timetable
+
 def save_timetable_csv(timetable, filename):
     """Saves timetable as csv file.
 
